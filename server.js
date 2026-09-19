@@ -12,10 +12,13 @@ app.use(express.json());
 
 // Configure Nodemailer transporter (using Gmail or standard SMTP)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
+  requireTLS: true,
   auth: {
-    user: process.env.EMAIL_USER, // Your business email
-    pass: process.env.EMAIL_PASS, // App password
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -55,5 +58,5 @@ app.post('/api/quote', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Easy Move backend running on port ${PORT}`);
+  console.log(`Light touch removals backend running on port ${PORT}`);
 });
