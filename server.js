@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -10,19 +9,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Configure Nodemailer transporter (using Gmail or standard SMTP)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  requireTLS: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// Quote Submission Endpoint
+// Quote Submission Endpoint using Resend HTTP API
 app.post('/api/quote', async (req, res) => {
   const { name, phone, from, to, size, date, notes } = req.body;
 
@@ -30,33 +17,42 @@ app.post('/api/quote', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing required fields' });
   }
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: 'ategeneddy@gmail.com',
-    subject: `New Moving Quote Request: ${from} to ${to}`,
-    html: `
-      <h2>New Quote Request Received</h2>
-      <p><strong>Name:</strong> ${name || 'Not provided'}</p>
-      <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
-      <p><strong>Move From:</strong> ${from}</p>
-      <p><strong>Move To:</strong> ${to}</p>
-      <p><strong>Property Size:</strong> ${size}</p>
-      <p><strong>Moving Date:</strong> ${date || 'Flexible'}</p>
-      <p><strong>Special Notes:</strong> ${notes || 'None'}</p>
-    `,
-  };
-
   try {
-    // Send email notification
-    await transporter.sendMail(mailOptions);
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'Light Touch Removals <onboarding@resend.dev>',
+        to: [process.env.EMAIL_USER],
+        subject: `Light Touch Removals: New Quote from ${name || 'Customer'} (${from} to ${to})`,
+        html: `
+          <h2>New Quote Request - Light Touch Removals</h2>
+          <p><strong>Name:</strong> ${name || 'Not provided'}</p>
+          <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
+          <p><strong>Move From:</strong> ${from}</p>
+          <p><strong>Move To:</strong> ${to}</p>
+          <p><strong>Property Size:</strong> ${size}</p>
+          <p><strong>Moving Date:</strong> ${date || 'Flexible'}</p>
+          <p><strong>Special Notes:</strong> ${notes || 'None'}</p>
+        `,
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to send email via Resend');
+    }
+
     res.status(200).json({ success: true, message: 'Quote submitted successfully!' });
   } catch (error) {
     console.error('Error sending email:', error);
-    // Fallback response if email credentials aren't set up yet during testing
-    res.status(200).json({ success: true, message: 'Quote received (Email dispatch pending config).' });
+    res.status(500).json({ success: false, message: 'Failed to send email notification' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Light touch removals backend running on port ${PORT}`);
+  console.log(`Light Touch Removals backend running on port ${PORT}`);
 });
